@@ -1,0 +1,5 @@
+"Plugin"
+{
+        // es_shim loads mattie_eventscripts.so and fixes it for the current engine (see src/es_shim/es_shim.c)
+        "file"          "addons/es_shim"
+}

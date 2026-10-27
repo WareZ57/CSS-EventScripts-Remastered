@@ -1,0 +1,7 @@
+# Files are stored byte for byte: the original EventScripts files use CRLF line endings
+# and must stay identical to the 2013 release.
+* -text
+*.so binary
+*.smx binary
+*.zip binary
+*.pyd binary

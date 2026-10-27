@@ -1,0 +1,240 @@
+// leaderboard - kill leaderboard saved to disk (keygroups), written in classic script (ESS)
+// Chat: !top  !me     Server console: leaderboard_test (disk round trip)  leaderboard_reset
+// Tests: keygroups (create, read/write, copy, sort, save/reload), es_foreachkey, nested conditions,
+// es_math, uniqueid, saving at every round end.
+// Messages avoid the apostrophe: in classic script it is a word separator.
+
+block load
+{
+  es_xset lb_uid 0
+  es_xset lb_sid 0
+  es_xset lb_name 0
+  es_xset lb_tmp 0
+  es_xset lb_k 0
+  es_xset lb_v1 0
+  es_xset lb_v2 0
+  es_xset lb_hs 0
+  es_xset lb_rank 0
+  es_xset lb_ratio 0
+  es_xset lb_ex 0
+  es_xset lb_ok 0
+  es_xset lb_ko 0
+  es_xset lb_field 0
+  es_xexists lb_ex keygroup lb_stats
+  if (server_var(lb_ex) = 0) do
+  {
+    es_xkeygroupload lb_stats |leaderboard
+    es_xexists lb_ex keygroup lb_stats
+    if (server_var(lb_ex) = 0) then es_xkeygroupcreate lb_stats
+  }
+  es_xregsaycmd !top leaderboard/top "Top 5 kills (saved to disk)"
+  es_xregsaycmd !me leaderboard/me "Your saved stats"
+  es_xexists lb_ex command leaderboard_test
+  if (server_var(lb_ex) = 0) do
+  {
+    es_xregcmd leaderboard_test leaderboard/test "Checks the keygroup disk round trip"
+    es_xregcmd leaderboard_reset leaderboard/reset "Resets the leaderboard"
+  }
+  es_xmsg #multi #green[leaderboard] #defaultloaded: #lightgreen!top !me
+}
+
+block unload
+{
+  es_xkeygroupsave lb_stats |leaderboard
+  es_xkeygroupdelete lb_stats
+  es_xunregsaycmd !top
+  es_xunregsaycmd !me
+}
+
+// lb_sid and lb_name set: creates the player entry if needed
+block ensure
+{
+  es_exists lb_ex key lb_stats server_var(lb_sid)
+  if (server_var(lb_ex) = 0) do
+  {
+    es_keycreate lb_stats server_var(lb_sid)
+    es_keysetvalue lb_stats server_var(lb_sid) kills 0
+    es_keysetvalue lb_stats server_var(lb_sid) deaths 0
+    es_keysetvalue lb_stats server_var(lb_sid) hs 0
+  }
+  es_keysetvalue lb_stats server_var(lb_sid) name server_var(lb_name)
+}
+
+// lb_field: adds 1 to that field of player lb_sid
+block increment
+{
+  es_keygetvalue lb_tmp lb_stats server_var(lb_sid) server_var(lb_field)
+  es_xmath lb_tmp + 1
+  es_keysetvalue lb_stats server_var(lb_sid) server_var(lb_field) server_var(lb_tmp)
+}
+
+event player_death
+{
+  if (event_var(attacker) != 0) do
+  {
+    if (event_var(attacker) != event_var(userid)) do
+    {
+      if (event_var(es_attackerteam) != event_var(es_userteam)) do
+      {
+        es uniqueid lb_sid event_var(attacker)
+        es_set lb_name event_var(es_attackername)
+        es_xdoblock leaderboard/ensure
+        es_xset lb_field kills
+        es_xdoblock leaderboard/increment
+        if (event_var(headshot) = 1) do
+        {
+          es_xset lb_field hs
+          es_xdoblock leaderboard/increment
+        }
+      }
+    }
+  }
+  es uniqueid lb_sid event_var(userid)
+  es_set lb_name event_var(es_username)
+  es_xdoblock leaderboard/ensure
+  es_xset lb_field deaths
+  es_xdoblock leaderboard/increment
+}
+
+event round_end
+{
+  es_xkeygroupsave lb_stats |leaderboard
+}
+
+block top
+{
+  es_xgetcmduserid lb_uid
+  es_xkeygroupdelete lb_sorted
+  es_xkeygroupcopy lb_stats lb_sorted
+  keygroupsort lb_sorted kills des #numeric
+  es_xset lb_rank 0
+  es_tell server_var(lb_uid) #multi #green[leaderboard] #defaultTop 5 kills:
+  es_xforeachkey lb_k in lb_sorted "es_xdoblock leaderboard/top_line"
+  if (server_var(lb_rank) = 0) then es_tell server_var(lb_uid) #multi #green[leaderboard] #defaultNo kill yet
+  es_xkeygroupdelete lb_sorted
+}
+
+block top_line
+{
+  es_xmath lb_rank + 1
+  if (server_var(lb_rank) < 6) do
+  {
+    es_keygetvalue lb_name lb_sorted server_var(lb_k) name
+    es_keygetvalue lb_v1 lb_sorted server_var(lb_k) kills
+    es_keygetvalue lb_v2 lb_sorted server_var(lb_k) deaths
+    es_tell server_var(lb_uid) #multi #lightgreen server_var(lb_rank) - server_var(lb_name) #default: server_var(lb_v1) kills, server_var(lb_v2) deaths
+  }
+}
+
+block me
+{
+  es_xgetcmduserid lb_uid
+  es uniqueid lb_sid server_var(lb_uid)
+  es_exists lb_ex key lb_stats server_var(lb_sid)
+  if (server_var(lb_ex) = 0) do
+  {
+    es_tell server_var(lb_uid) #multi #green[leaderboard] #defaultNo stats yet
+  }
+  else do
+  {
+    es_keygetvalue lb_v1 lb_stats server_var(lb_sid) kills
+    es_keygetvalue lb_v2 lb_stats server_var(lb_sid) deaths
+    es_keygetvalue lb_hs lb_stats server_var(lb_sid) hs
+    es_set lb_ratio server_var(lb_v1)
+    if (server_var(lb_v2) > 0) then es_math lb_ratio / server_var(lb_v2)
+    es_tell server_var(lb_uid) #multi #green[leaderboard] #defaultKills #lightgreen server_var(lb_v1) #defaultDeaths #lightgreen server_var(lb_v2) #defaultHS #lightgreen server_var(lb_hs) #defaultRatio #lightgreen server_var(lb_ratio)
+  }
+}
+
+block reset
+{
+  es_xkeygroupdelete lb_stats
+  es_xkeygroupcreate lb_stats
+  es_xkeygroupsave lb_stats |leaderboard
+  es_xdbgmsg 0 [leaderboard] reset
+}
+
+// ── Disk round trip: write, wipe from memory, reload, compare ──
+
+// lb_v1 = value read back, lb_v2 = expected value, lb_k = description
+block compare
+{
+  if (server_var(lb_v1) = server_var(lb_v2)) do
+  {
+    es_xmath lb_ok + 1
+  }
+  else do
+  {
+    es_xmath lb_ko + 1
+    es_dbgmsg 0 [leaderboard_test] FAILED server_var(lb_k) : read server_var(lb_v1) expected server_var(lb_v2)
+  }
+}
+
+block test
+{
+  es_xset lb_ok 0
+  es_xset lb_ko 0
+
+  // 1. Known data set (spaces, accents, colons, brackets)
+  es_xkeygroupdelete lb_rt
+  es_xkeygroupcreate lb_rt
+  es_xkeycreate lb_rt "[U:1:123456]"
+  es_xkeysetvalue lb_rt "[U:1:123456]" name "Player | Zoë Noël"
+  es_xkeysetvalue lb_rt "[U:1:123456]" kills 42
+  es_xkeysetvalue lb_rt "[U:1:123456]" ratio 1.75
+  es_xkeycreate lb_rt BOT_Bill
+  es_xkeysetvalue lb_rt BOT_Bill kills 7
+  es_xkeygroupsave lb_rt |leaderboard
+  es_xkeygroupdelete lb_rt
+  es_xexists lb_v1 keygroup lb_rt
+  es_xset lb_v2 0
+  es_xset lb_k "keygroup wiped from memory"
+  es_xdoblock leaderboard/compare
+  es_xkeygroupload lb_rt |leaderboard
+  es_xexists lb_v1 keygroup lb_rt
+  es_xset lb_v2 1
+  es_xset lb_k "keygroup reloaded"
+  es_xdoblock leaderboard/compare
+  es_xkeygetvalue lb_v1 lb_rt "[U:1:123456]" name
+  es_xset lb_v2 "Player | Zoë Noël"
+  es_xset lb_k "name with accents"
+  es_xdoblock leaderboard/compare
+  es_xkeygetvalue lb_v1 lb_rt "[U:1:123456]" kills
+  es_xset lb_v2 42
+  es_xset lb_k "kills of the steamid"
+  es_xdoblock leaderboard/compare
+  // Valve KeyValues: a number read back from disk becomes a float with 6 decimals
+  es_xkeygetvalue lb_v1 lb_rt "[U:1:123456]" ratio
+  es_xset lb_v2 1.750000
+  es_xset lb_k "decimal number"
+  es_xdoblock leaderboard/compare
+  es_xkeygetvalue lb_v1 lb_rt BOT_Bill kills
+  es_xset lb_v2 7
+  es_xset lb_k "kills of the bot"
+  es_xdoblock leaderboard/compare
+  es_xkeygroupdelete lb_rt
+
+  // 2. The real leaderboard: copy in memory, save, wipe, reload, compare
+  es_xkeygroupsave lb_stats |leaderboard
+  es_xkeygroupdelete lb_ref
+  es_xkeygroupcopy lb_stats lb_ref
+  es_xkeygroupdelete lb_stats
+  es_xkeygroupload lb_stats |leaderboard
+  es_xforeachkey lb_k in lb_ref "es_xdoblock leaderboard/test_player"
+  es_xkeygroupdelete lb_ref
+
+  es_dbgmsg 0 [leaderboard_test] server_var(lb_ok) passed, server_var(lb_ko) failed
+}
+
+block test_player
+{
+  es_keygetvalue lb_v1 lb_stats server_var(lb_k) kills
+  es_keygetvalue lb_v2 lb_ref server_var(lb_k) kills
+  es_xdoblock leaderboard/compare
+  es_keygetvalue lb_v1 lb_stats server_var(lb_k) deaths
+  es_keygetvalue lb_v2 lb_ref server_var(lb_k) deaths
+  es_xdoblock leaderboard/compare
+  es_keygetvalue lb_v1 lb_stats server_var(lb_k) name
+  es_keygetvalue lb_v2 lb_ref server_var(lb_k) name
+  es_xdoblock leaderboard/compare
+}

@@ -1,0 +1,97 @@
+// test_chat - test addon written in classic EventScripts script (ESS)
+// Chat commands: !testhelp  !hello  !hp  !money  !ak  !countdown
+// Tests: es_regsaycmd, chat colors, player props, es_give, es_delayed, game events
+// Messages avoid the apostrophe: in classic script it is a word separator.
+
+block load
+{
+  es_xset tc_uid 0
+  es_xset tc_name 0
+  es_xset tc_tmp 0
+  es_xregsaycmd !testhelp test_chat/testhelp "Test: list of the test commands"
+  es_xregsaycmd !hello test_chat/hello "Test: welcome message"
+  es_xregsaycmd !hp test_chat/hp "Test: shows your health and armor"
+  es_xregsaycmd !money test_chat/money "Test: sets your money to 16000"
+  es_xregsaycmd !ak test_chat/ak "Test: gives you an AK-47"
+  es_xregsaycmd !countdown test_chat/countdown "Test: countdown in the middle of the screen"
+  es_xmsg #multi #green[test_chat] #defaultloaded: type #lightgreen!testhelp
+}
+
+block unload
+{
+  es_xunregsaycmd !testhelp
+  es_xunregsaycmd !hello
+  es_xunregsaycmd !hp
+  es_xunregsaycmd !money
+  es_xunregsaycmd !ak
+  es_xunregsaycmd !countdown
+}
+
+block testhelp
+{
+  es_xgetcmduserid tc_uid
+  es_tell server_var(tc_uid) #multi #green[test_chat] #lightgreen!hello !hp !money !ak !countdown
+  es_tell server_var(tc_uid) #multi #green[test_menu] #lightgreen!menu !info !motd
+  es_tell server_var(tc_uid) #multi #green[test_stats] #lightgreen!stats #defaultand kill streak messages
+  es_tell server_var(tc_uid) #multi #green[verify_data] #lightgreen!verify !tests
+}
+
+block hello
+{
+  es_xgetcmduserid tc_uid
+  es_getplayername tc_name server_var(tc_uid)
+  es_tell server_var(tc_uid) #multi #green[test_chat] #defaultHello #lightgreen server_var(tc_name) #default! EventScripts is working.
+  es_centertell server_var(tc_uid) Hello server_var(tc_name)
+}
+
+block hp
+{
+  es_xgetcmduserid tc_uid
+  es_getplayerprop tc_tmp server_var(tc_uid) CBasePlayer.m_iHealth
+  es_tell server_var(tc_uid) #multi #green[test_chat] #defaultHealth: #lightgreen server_var(tc_tmp)
+  es_getplayerprop tc_tmp server_var(tc_uid) CCSPlayer.m_ArmorValue
+  es_tell server_var(tc_uid) #multi #green[test_chat] #defaultArmor: #lightgreen server_var(tc_tmp)
+}
+
+block money
+{
+  es_xgetcmduserid tc_uid
+  es_setplayerprop server_var(tc_uid) CCSPlayer.m_iAccount 16000
+  es_tell server_var(tc_uid) #multi #green[test_chat] #defaultYou now have $16000
+}
+
+block ak
+{
+  es_xgetcmduserid tc_uid
+  es_give server_var(tc_uid) weapon_ak47
+  es_tell server_var(tc_uid) #multi #green[test_chat] #defaultHere is an #lightgreenAK-47
+}
+
+block countdown
+{
+  es_xgetcmduserid tc_uid
+  es_centertell server_var(tc_uid) 3
+  es_delayed 1 es_centertell server_var(tc_uid) 2
+  es_delayed 2 es_centertell server_var(tc_uid) 1
+  es_delayed 3 es_centertell server_var(tc_uid) GO!
+  es_delayed 3 es_tell server_var(tc_uid) #multi #green[test_chat] #defaultes_delayed works
+}
+
+event player_death
+{
+  if (event_var(attacker) notequalto 0) do
+  {
+    if (event_var(attacker) notequalto event_var(userid)) do
+    {
+      es_msg #multi #green[test_chat] #lightgreen event_var(es_attackername) #defaultkilled #lightgreen event_var(es_username) #default( event_var(weapon) )
+    }
+  }
+}
+
+event player_spawn
+{
+  if (event_var(es_steamid) notequalto BOT) do
+  {
+    es_tell event_var(userid) #multi #green[test_chat] #defaultType #lightgreen!testhelp #defaultfor the test commands
+  }
+}

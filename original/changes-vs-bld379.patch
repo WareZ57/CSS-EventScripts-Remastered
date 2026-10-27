@@ -1,0 +1,68 @@
+diff --git a/addons/eventscripts/_libs/python/esamlib.py b/addons/eventscripts/_libs/python/esamlib.py
+index 0de9458..6c26c24 100644
+--- a/addons/eventscripts/_libs/python/esamlib.py
++++ b/addons/eventscripts/_libs/python/esamlib.py
+@@ -18,6 +18,15 @@ Basic Library for interfacing with the ESAM
+ 
+ baseurl = 'http://addons.eventscripts.com/' # Base URL to ESAM
+ 
++# ESAM (addons.eventscripts.com) has been offline since 2013 and its domain may change hands:
++# es_install would download and run whatever it serves. Every request is refused instead.
++class _ESAMOffline(object):
++   @staticmethod
++   def urlopen(*a, **kw):
++      raise IOError("ESAM (addons.eventscripts.com) is offline: install addons manually in addons/eventscripts/")
++
++urllib2 = _ESAMOffline
++
+ ###
+ 
+ class DBGLog(object):
+diff --git a/addons/eventscripts/corelib/es_corelib.txt b/addons/eventscripts/corelib/es_corelib.txt
+index fbc6a35..306d985 100644
+--- a/addons/eventscripts/corelib/es_corelib.txt
++++ b/addons/eventscripts/corelib/es_corelib.txt
+@@ -79,7 +79,9 @@ block load
+   es_xload corelib/inrange
+   es_xload corelib/entitylib
+   es_xload corelib/es_install
+-  es_xload corelib/es_checkversion
++  // es_checkversion disabled: api.eventscripts.com is dead and its blocking urlopen (no timeout)
++  // hung the server thread until the watchdog killed it on every map start
++  // es_xload corelib/es_checkversion
+   es_xload corelib/es_mexec
+   
+   // register the default interfaces and services
+@@ -199,14 +201,14 @@ block while
+     ifx true(_whilecmd) do
+     {
+       es_xformatv _whilecmd "%1;_whileloop" _whilecmd
+-      es alias _whilecmd server_var(_whilecmd)
+-      es_xformatv _whilestatement "if (%1) then _whilecmd" _whilecond
++      es alias _whilecmd_alias server_var(_whilecmd)
++      es_xformatv _whilestatement "if (%1) then _whilecmd_alias" _whilecond
+       es alias _whileloop server_var(_whilestatement)
+       _whileloop
+     }
+   }
+   stack restore _whilestack _whilecmd
+-  es alias _whilecmd server_var(_whilecmd)
++  es alias _whilecmd_alias server_var(_whilecmd)
+   stack restore _whilestack _whilestatement
+   es alias _whileloop server_var(_whilestatement)
+ }
+diff --git a/addons/mattie_eventscripts.vdf b/addons/mattie_eventscripts.vdf
+index 554eaad..6496245 100644
+--- a/addons/mattie_eventscripts.vdf
++++ b/addons/mattie_eventscripts.vdf
+@@ -1,4 +1,5 @@
+-"Plugin" 
+-{
+-        "file"          "addons/mattie_eventscripts"
+-}
+\ No newline at end of file
++"Plugin"
++{
++        // es_shim loads mattie_eventscripts.so and fixes it for the current engine (see src/es_shim/es_shim.c)
++        "file"          "addons/es_shim"
++}

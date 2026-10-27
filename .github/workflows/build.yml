@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  es_shim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build es_shim.so (32-bit, glibc 2.17)
+        run: |
+          mkdir -p out
+          docker run --rm -v "$PWD/src/es_shim:/src:ro" -v "$PWD/out:/out" quay.io/pypa/manylinux2014_i686 \
+            gcc -m32 -O2 -Wall -Werror -shared -fPIC -fvisibility=hidden -mstackrealign \
+                -o /out/es_shim.so /src/es_shim.c -ldl
+
+      - name: Check the glibc requirement (CS:S needs 2.29)
+        run: |
+          objdump -T out/es_shim.so | grep -oE 'GLIBC_[0-9.]+' | sort -Vu | tail -1 | tee max_glibc
+          test "$(printf '%s\nGLIBC_2.29\n' "$(cat max_glibc)" | sort -V | tail -1)" = "GLIBC_2.29"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: es_shim
+          path: out/es_shim.so
+
+  est_compat:
+    runs-on: ubuntu-latest
+    env:
+      SM_BUILD: 1.12.0-git7255
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SourceMod 1.12
+        run: curl -fsSL "https://sm.alliedmods.net/smdrop/1.12/sourcemod-${SM_BUILD}-linux.tar.gz" | tar xz -C "$RUNNER_TEMP"
+
+      - name: Compile est_compat
+        run: |
+          mkdir -p out
+          "$RUNNER_TEMP/addons/sourcemod/scripting/spcomp64" \
+            optional/est_compat/cstrike/addons/sourcemod/scripting/est_compat.sp \
+            -i"$RUNNER_TEMP/addons/sourcemod/scripting/include" -E -o out/est_compat.smx
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: est_compat
+          path: out/est_compat.smx
+
+  test_addons:
+    runs-on: ubuntu-latest
+    container: python:2.7-slim
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python syntax of the test addons
+        run: |
+          for f in test-addons/*/*.py; do python -m py_compile "$f" && echo "ok $f"; done
