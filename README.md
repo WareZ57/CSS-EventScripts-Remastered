@@ -14,7 +14,8 @@ the modern engine, and three script files of the original package are patched. E
 both the original release and the fixes are included, and the result is a drop-in `cstrike/` folder.
 
 > [!NOTE]
-> The WCS (Warcraft Source) addon is not part of this repository. It runs on this version and will be published separately.
+> Warcraft Source (WCS) runs on this version: [**CSS WCS Remastered**](https://github.com/WareZ57/CSS-WCS-Remastered) is a
+> drop-in add-on for this repository.
 
 ## Status
 
