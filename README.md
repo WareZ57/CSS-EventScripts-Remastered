@@ -171,7 +171,7 @@ The [GitHub Actions workflow](.github/workflows/build.yml) builds both on every 
 
 ## Credits
 
-- **Mattie Casper** — creator and author of EventScripts (2005–2013), and of most of its libraries.
+- **Mattie Casper** ([@Mattie](https://github.com/Mattie)) — creator and author of EventScripts (2005–2013), and of most of its libraries.
 - **The EventScripts development team and community**, credited in the package: freddukes (Steven Hartin), GODJonez,
   Hunter, Errant and the eXtensible Admin team, SumGuy14 (SoccerDude), XE_ManUp, Satoon101, SuperDave, Venjax, Chun,
   Don, Wonder, cagemonkey, MyFly, Einlanzers, Carlsagan43, HitThePipe, Rio, [OMEGA] - K2, and the ES 2.0 beta testers.
